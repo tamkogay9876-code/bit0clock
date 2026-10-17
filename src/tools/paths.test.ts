@@ -148,4 +148,12 @@ describe('sensitive paths', () => {
     expect(paths.isSensitive('/etc/passwd')).toBe(true);
     expect(paths.isSensitive('src/index.ts')).toBe(false);
   });
+
+  it('canonicalizes workspace-root aliases before computing safe relative paths', () => {
+    const root = makeRoot();
+    const alias = `${root}-alias`;
+    symlinkSync(root, alias, 'dir');
+    const paths = new WorkspacePaths(root);
+    expect(paths.safeRelative(join(alias, 'a.txt'))).toBe('a.txt');
+  });
 });

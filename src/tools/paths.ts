@@ -172,7 +172,7 @@ export class WorkspacePaths {
 
   /** Workspace-relative path for an absolute path, or null when outside. */
   safeRelative(absPath: string): string | null {
-    const abs = resolve(absPath);
+    const abs = this.canonicalize(resolve(absPath));
     if (!this.isInside(abs)) return null;
     return relative(this.realRoot, abs).split(sep).join('/');
   }
