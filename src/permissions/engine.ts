@@ -91,7 +91,8 @@ export class PermissionEngine {
   readonly projectRulesError?: string;
   /** False for --yes and for policy-only runs */
   readonly interactive: boolean;
-  readonly autoApprove: boolean;
+  private autoApproveEnabled: boolean;
+  private autoApproveSource: string;
 
   private mode: AgentMode;
   private sessionRules: PermissionRule[] = [];
@@ -106,7 +107,8 @@ export class PermissionEngine {
     this.projectRules = options.projectRules ?? [];
     if (options.projectRulesError) this.projectRulesError = options.projectRulesError;
     this.interactive = options.interactive;
-    this.autoApprove = options.autoApprove ?? false;
+    this.autoApproveEnabled = options.autoApprove ?? false;
+    this.autoApproveSource = options.autoApprove ? '--yes' : '/auto';
   }
 
   getMode(): AgentMode {
@@ -115,6 +117,15 @@ export class PermissionEngine {
 
   setMode(mode: AgentMode): void {
     this.mode = mode;
+  }
+
+  get autoApprove(): boolean {
+    return this.autoApproveEnabled;
+  }
+
+  setAutoApprove(enabled: boolean): void {
+    this.autoApproveEnabled = enabled;
+    this.autoApproveSource = '/auto';
   }
 
   // --------------------------------------------------------------------------
@@ -174,12 +185,12 @@ export class PermissionEngine {
     if (request.permissionClass === 'read') {
       return { decision: 'allow', reason: 'read-only actions are allowed by default' };
     }
-    if (this.autoApprove || request.userInitiated) {
+    if (this.autoApproveEnabled || request.userInitiated) {
       return {
         decision: 'allow',
         reason: request.userInitiated
           ? 'explicitly invoked by the user (the invocation satisfies confirmation)'
-          : 'auto-approved: --yes was passed (consequential actions are not confirmed)',
+          : `auto-approved: ${this.autoApproveSource} is active (consequential actions are not confirmed)`,
       };
     }
     if (!this.interactive) {

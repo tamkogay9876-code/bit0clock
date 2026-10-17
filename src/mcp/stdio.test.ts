@@ -10,6 +10,7 @@ import { dirname, join, resolve } from 'path';
 import { defaultConfig } from '../config/schema.js';
 import { MemoryCredentialStore } from '../app/test-utils.js';
 import { MCPManager } from './manager.js';
+import { resolveStdioEnvironment } from './client.js';
 import type { AppConfig, MCPServerConfig } from '../types/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -17,6 +18,28 @@ const fixtureServer = join(here, 'fixtures', 'stdio-test-server.ts');
 const workspaceRoot = resolve(here, '../..');
 
 const TEST_TIMEOUT = 30_000;
+
+describe('MCP stdio environment references', () => {
+  it('resolves env: references only at runtime and refuses missing or literal secrets', () => {
+    const variable = 'MEDIA_XG_TEST_MCP_STDIO_SECRET';
+    const previous = process.env[variable];
+    process.env[variable] = 'runtime-secret';
+    try {
+      const resolved = resolveStdioEnvironment({ API_KEY: `env:${variable}` });
+      expect(resolved['API_KEY']).toBe('runtime-secret');
+    } finally {
+      if (previous === undefined) delete process.env[variable];
+      else process.env[variable] = previous;
+    }
+
+    expect(() => resolveStdioEnvironment({ API_KEY: 'literal-secret' })).toThrow(
+      /use env:VARIABLE_NAME/,
+    );
+    expect(() => resolveStdioEnvironment({ API_KEY: 'env:MEDIA_XG_MISSING_SECRET' })).toThrow(
+      /is not set/,
+    );
+  });
+});
 
 function stdioConfig(name: string, overrides: Partial<MCPServerConfig> = {}): MCPServerConfig {
   return {

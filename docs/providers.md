@@ -6,12 +6,13 @@ mediaXG supports OpenAI-compatible, Anthropic-compatible, and xKiro providers.
 
 ```
 /connect <provider> --key-env <ENV_VAR>
-/connect <provider> --key <secret>   # stored in the credential store
+/connect <provider> --key <secret>   # avoid in terminals that retain command history
 ```
 
-Credentials are stored in the OS credential store when available, otherwise in
-the documented fallback (file with 0600 permissions). Secrets are never logged
-or written to session files.
+Credential references resolve from environment variables first, then from
+`~/.config/mediaxg/credentials.json`, written with mode `0600` where supported.
+The file store is not encrypted, and OS keychain integration is not currently
+implemented. Secrets are never logged or written to session files.
 
 ## Model discovery
 

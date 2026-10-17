@@ -5,9 +5,8 @@
  *  1. Environment variable with the same name (recommended for CI/servers)
  *  2. File store (~/.config/mediaxg/credentials.json, chmod 600)
  *
- * OS keychain integration (macOS `security`, Linux `secret-tool`) is added in
- * Phase F. The file store is a documented fallback — it is NOT presented as
- * secure storage; its permissions and limitations are documented in README.
+ * No OS keychain integration is currently implemented. The file store is
+ * not encrypted; restrictive permissions are best-effort and documented.
  *
  * Secrets are never logged, never placed in URLs, and never exported in
  * session files. `maskSecret()` produces safe display strings.

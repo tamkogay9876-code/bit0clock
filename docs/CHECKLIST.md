@@ -106,7 +106,7 @@ Deferred on purpose:
 - [x] Transports: streamable HTTP + stdio [§36] — stdio env = SDK `getDefaultEnvironment()` + config env; stderr consumed line-by-line; URLs with secret-looking query params or userinfo rejected; oauth auth type rejected with an honest "not implemented" error (`src/mcp/client.ts`)
 - [x] MCP discovery, tool exposition with permission state [§37] — tools wrapped via `defineExternalTool` with ajv JSON-Schema validation; names `mcp__<server>__<tool>` (sanitized, 64-char cap + sha1 suffix); permission class `mcp`, `mutating: true` so plan/review modes exclude MCP tools; annotations shown but never trusted; `disabledTools` toggles exposure; capability gating (no list calls for unadvertised capabilities)
 - [x] MCP security: schema validation, timeouts, output caps, untrusted data [§38] — ajv arg validation before any call; `isError` from the server is a tool result, transport failures throw; every call passes the permission engine; output wrapped with an untrusted-data header and meta; disabled servers/tools refused; removed servers drop tools (`src/mcp/manager.ts`, `tools/types.ts`)
-- [x] `/mcp` command family + Context7/xKiro examples [§39] — list/add/show/test/enable/disable/remove/tools/resources/prompts/permissions/auth/logs; servers added disabled by default; `/mcp remove` requires `--yes`; `/mcp auth <name> <secret>` writes the credential store (config keeps only the ref); `defaultCredentialRef` derivation; Context7 + xKiro endpoints in the empty state (`src/commands/builtin/mcp.ts`)
+- [x] `/mcp` command family + Context7/xKiro examples [§39] — list/add/show/test/enable/disable/remove/tools/resources/prompts/permissions/auth/logs; servers added disabled by default; `/mcp remove` requires `--yes`; `/mcp auth <name> --key-env=ENV_VAR` reads the environment and writes to the credential store (config keeps only the ref); `defaultCredentialRef` derivation; Context7 + xKiro endpoints in the empty state (`src/commands/builtin/mcp.ts`)
 - [x] `/skills` command family [§13] — list/show/on/off/references/reference/diagnostics/reload (`src/commands/builtin/skills.ts`)
 - [x] `/context pin|unpin|auto|compact` [§13] — `pinnedPaths` in the session (default `[]`), pipeline adds 'pinned' assembly candidates, files re-read from disk each request, `PIN_MAX_BYTES=16000`, `PIN_MAX_FILES=20`; `/context auto` selects the 'auto' profile; `/context compact` delegates to `runDefaultCompaction` (`src/commands/builtin/context.ts`, `src/context/pipeline.ts`)
 - [x] System prompt wiring: `buildSystemPrompt` options `skillsBlock`/`pinnedBlock`/`mcpServers` with labeled sections; pipeline `loadPinnedFiles`/`renderSkillsBlock`/`renderPinnedBlock` + 'skill'/'pinned' candidates + preview parity + `mcpServers` option (`src/agent/request.ts`, `src/context/pipeline.ts`, `src/agent/loop.ts`)
@@ -114,7 +114,7 @@ Deferred on purpose:
 - [x] `RegisteredTool.zodSchema` → `validateArgs(): ToolArgValidation`; `defineExternalTool`/`ExternalToolSpec` added; `tool-runner.ts` uses `validateArgs` (error text now ends "The call was not executed.") (`src/tools/types.ts`, `registry.ts`, `tool-runner.ts`)
 - [x] 110 new tests (852 total): frontmatter (19), skill manager (34), MCP manager fake-client (29), MCP stdio integration (5), Phase F commands (26), loop wiring (8), context pipeline pins/skills (5), config schema (4)
 - [x] Verified: typecheck clean (`tsc --noEmit`); full suite 852 pass / 0 fail (52 files); non-interactive CLI smoke (`/skills`, `/mcp`, `/context`, `--doctor`) works; interactive TUI gated on a real TTY (unchanged)
-- [x] Credential abstraction: OS keychain + documented fallback handled by the existing `CredentialStore` chain (`src/credentials/`); MCP writes secrets there via `/mcp auth` (config keeps only the ref) [§51]
+- [x] Credential abstraction: environment lookup + local `0600` file store handled by `CredentialStore`; no OS keychain integration is implemented. MCP auth reads environment variables, then stores the value without putting it in config [§51]
 
 ## Phase G — Persistence and hardening ✅ (complete)
 
@@ -130,9 +130,10 @@ Deferred on purpose:
 
 ## Phase H — Verification and release ✅ (complete)
 
-- [x] Full test suite (unit/integration) — 852 pass / 0 fail across 52 files
+- [x] Full test suite (unit/integration) — 867 pass / 0 fail across 53 files
 - [x] Typecheck + lint + build all passing (`tsc --noEmit`, `prettier --check`, `bun build`)
 - [x] Prettier mass-applied (115 files) and `format`/`format:check` scripts added
 - [x] Documentation: installation, configuration, providers, xKiro, commands, modes, context, skills, MCP, permissions, sessions, diagnostics, troubleshooting, limitations (`docs/`)
-- [x] Packaging workflow: `bun build` verified (887 modules, 3.14 MB); smoke of non-interactive CLI
+- [x] Packaging workflow: `bun build` verified (901 modules, 3.15 MB); smoke of non-interactive CLI
+- [x] MIT license, Linux/macOS GitHub Actions CI, and dependency audit (224 packages; no known advisories)
 - [x] Final report (`docs/REPORT.md`) per §60

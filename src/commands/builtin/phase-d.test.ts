@@ -84,6 +84,24 @@ describe('/tools', () => {
 });
 
 describe('/permissions', () => {
+  it('toggles session auto-approval and reports its hard limits', async () => {
+    const { app } = makeApp();
+    const registry = registryFor(app);
+
+    const enabled = await run(registry, '/auto true');
+    expect(enabled.ok).toBe(true);
+    expect(app.permissions.autoApprove).toBe(true);
+    expect(enabled.output).toContain('Automatic approval is ON');
+    expect(enabled.output).toContain('Plan/Review read-only policy still apply');
+
+    const disabled = await run(registry, '/auto false');
+    expect(disabled.ok).toBe(true);
+    expect(app.permissions.autoApprove).toBe(false);
+
+    const invalid = await run(registry, '/auto maybe');
+    expect(invalid.ok).toBe(false);
+  });
+
   it('shows the precedence chain, scopes, and mode policy', async () => {
     const { dir } = makeApp();
     mkdirSync(join(dir, '.mediaxg'), { recursive: true });

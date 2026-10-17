@@ -31,9 +31,11 @@ pin|unpin|auto|compact`. 852 tests.
 ## Verification
 
 - `bun run typecheck` (`tsc --noEmit`): clean.
-- `bun run build`: clean (887 modules, 3.14 MB).
-- `bun test`: 852 pass / 0 fail across 52 files.
+- `bun run build`: clean (901 modules, 3.15 MB).
+- `bun test`: 867 pass / 0 fail across 53 files.
 - `bun run format:check`: all files conform.
+- `bun audit`: no vulnerabilities across 224 packages.
+- GitHub Actions CI runs format, typecheck, tests, and build on Linux and macOS.
 - Non-interactive CLI smoke: `/skills`, `/mcp`, `/context`, `--doctor` work.
 - Interactive TUI requires a real TTY (unchanged).
 
@@ -42,8 +44,8 @@ pin|unpin|auto|compact`. 852 tests.
 - xKiro: not marked verified; `/budget balance` reports unknown shapes
   without inventing values. No real API keys were used in tests.
 - All providers: tests use deterministic mock fetch; no live network calls.
-- OS credential storage: used when available; fallback documented, not
-  claimed secure.
+- OS keychain: not implemented. Credentials resolve from environment
+  variables, then a local `0600` file which is not encrypted.
 - Windows: unverified.
 
 ## Outstanding issues
@@ -60,4 +62,8 @@ pin|unpin|auto|compact`. 852 tests.
 The application starts successfully, the essential slash commands have
 genuine handlers, providers/models are configured through real state, plan
 mode prevents mutations through every integrated tool source, and build mode
-implements changes under the central permission engine.
+implements changes under the central permission engine. `/auto true` disables
+consequential-action prompts for the current app session, while deny rules,
+read-only modes, workspace guards, and tool execution restrictions remain in
+force. The application does not provide desktop GUI or unrestricted host
+control.

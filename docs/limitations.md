@@ -4,6 +4,10 @@
   reports unknown shapes without inventing values.
 - No claim of perfect sandboxing: the workspace guard and permission engine
   reduce risk but are not a kernel-level sandbox.
+- `/auto true` skips confirmation prompts only for registered tool actions in
+  the current app session. It does not bypass deny rules, Plan/Review mode,
+  workspace path checks, or command restrictions; desktop GUI and unrestricted
+  host control are not implemented.
 - OS credential storage is used when available; the fallback is documented
   and not claimed secure.
 - SQLite session storage is not implemented (JSON store with migrations and

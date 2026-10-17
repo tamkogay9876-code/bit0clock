@@ -1,6 +1,7 @@
 {
   "name": "mediaxg",
   "version": "0.1.0",
+  "license": "MIT",
   "description": "Premium terminal-based AI coding agent with multi-provider support",
   "type": "module",
   "bin": {
@@ -18,11 +19,11 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "ajv": "^8.17.1",
     "better-sqlite3": "^11.0.0",
     "chalk": "^5.3.0",
-    "diff": "^7.0.0",
+    "diff": "^8.0.3",
     "glob": "^11.0.0",
     "ignore": "^6.0.0",
     "ink": "^5.0.0",
@@ -37,7 +38,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
     "@types/bun": "^1.4.3",
-    "@types/diff": "^6.0.0",
+    "@types/diff": "^8.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
     "prettier": "^3.3.0",

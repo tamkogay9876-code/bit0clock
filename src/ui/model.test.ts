@@ -12,6 +12,7 @@ import {
   contextUsedTokens,
   finalizeEntry,
   hydrateTranscript,
+  isCredentialCommand,
   permissionKeyDecision,
   pushEntry,
   statusParts,
@@ -118,6 +119,10 @@ describe('status parts', () => {
     expect(status.model).toContain('no model');
     expect(status.provider).toBe('no provider');
     expect(status.think).toContain('THINK medium');
+    expect(status.auto).toBe('AUTO off');
+
+    app.setAutoApprove(true);
+    expect(statusParts(app).auto).toBe('AUTO ON');
   });
 
   it('shows model, context, and estimated cost once configured', () => {
@@ -187,6 +192,14 @@ describe('input suggestions', () => {
     const registry = makeRegistry();
     const [suggestion] = computeSuggestions(registry, '/think b');
     expect(applySuggestion('/think b', suggestion!)).toBe('/think budget');
+  });
+});
+
+describe('credential input history', () => {
+  it('identifies MCP auth commands so their arguments are not retained in history', () => {
+    expect(isCredentialCommand('/mcp auth server secret-value')).toBe(true);
+    expect(isCredentialCommand('/mcp auth server --key-env=SERVER_KEY')).toBe(true);
+    expect(isCredentialCommand('/mcp list')).toBe(false);
   });
 });
 

@@ -13,7 +13,8 @@ Premium terminal-based AI coding agent with multi-provider support, streaming, r
 - **Session persistence**: Versioned JSON store with search, resume, export
 - **Context management**: Requested budgets up to 5M tokens — always clamped by real model/provider limits, with assembly provenance, retrieval, and compaction
 - **Budget controls**: Usage tracking, pricing, spending limits
-- **Security**: Credential protection, permission engine, path traversal prevention
+- **Security**: Environment/file credential storage, permission engine, path traversal prevention
+- **Session automation**: `/auto true` skips consequential-action prompts for the current app session; deny rules, read-only modes, and workspace guards still apply
 
 ## Installation
 
@@ -45,6 +46,12 @@ Configuration is stored in:
 
 - Project: `.mediaxg/config.json`
 - User: `~/.config/mediaxg/config.json`
+
+Credentials resolve from environment variables first, then the local file
+`~/.config/mediaxg/credentials.json` (mode `0600` where supported). The file
+store is not encrypted; OS keychain integration is not currently implemented.
+For MCP, use `/mcp auth <name> --key-env=ENV_VAR` so the secret itself never
+appears in the command line.
 
 ## License
 

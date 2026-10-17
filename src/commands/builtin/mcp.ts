@@ -2,30 +2,25 @@
  * MCP management commands (§39).
  *
  * Configuration is stored with credential *references*, never secrets:
- * `/mcp auth <name> <secret>` writes to the credential store, the config file
- * only keeps `auth.credentialRef`. New servers are added disabled — nothing
+ * `/mcp auth <name> --key-env=<ENV_VAR>` writes to the credential store, the
+ * config file only keeps `auth.credentialRef`. New servers are added disabled — nothing
  * connects or exposes tools until the user enables and tests them.
  */
 
 import type { AppState } from '../../app/state.js';
 import type { MCPServerConfig } from '../../types/index.js';
 import type { CommandDefinition, CommandResult } from '../types.js';
-import { assertNoSecretsInUrl } from '../../mcp/client.js';
+import { assertNoSecretsInUrl, validateStdioEnvConfig } from '../../mcp/client.js';
 import { mcpToolName } from '../../mcp/manager.js';
-import { MODES } from '../../modes/index.js';
+import { defaultCredentialRef, storeMcpAuth } from './mcp-auth.js';
+import { inspectMcpPermissions, showMcpLogs } from './mcp-inspection.js';
+
+export { defaultCredentialRef } from './mcp-auth.js';
 
 export const DEFAULT_MCP_TIMEOUT_MS = 30_000;
 export const DEFAULT_MCP_OUTPUT_BYTES = 50_000;
 
 const NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
-
-export function defaultCredentialRef(name: string): string {
-  const cleaned = name
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  return `${cleaned}_API_KEY`;
-}
 
 export function createMcpCommands(app: AppState): CommandDefinition[] {
   return [
@@ -92,8 +87,8 @@ export function createMcpCommands(app: AppState): CommandDefinition[] {
         },
         {
           name: 'auth',
-          usage: '/mcp auth <name> <secret>',
-          description: 'Store/rotate the credential (credential store only)',
+          usage: '/mcp auth <name> --key-env=<ENV_VAR>',
+          description: 'Store/rotate a credential from an environment variable',
         },
         {
           name: 'logs',
@@ -137,11 +132,17 @@ export function createMcpCommands(app: AppState): CommandDefinition[] {
             case 'prompts':
               return await listPrompts(app, args[1]);
             case 'permissions':
-              return await permissions(app, args[1], args[2], args[3] as 'on' | 'off' | undefined);
+              return await inspectMcpPermissions(
+                app,
+                args[1],
+                args[2],
+                args[3] as 'on' | 'off' | undefined,
+                { saveConfig, statusLabel },
+              );
             case 'auth':
-              return await storeAuth(app, args[1], args[2]);
+              return await storeMcpAuth(app, args[1], args[2], flags);
             case 'logs':
-              return showLogs(
+              return showMcpLogs(
                 app,
                 typeof flags['server'] === 'string' ? flags['server'] : undefined,
               );
@@ -311,6 +312,8 @@ function addServer(
         if (typeof value !== 'string')
           return { ok: false, error: `--env value for ${key} must be a string.` };
       }
+      const envError = validateStdioEnvConfig(envValue);
+      if (envError) return { ok: false, error: envError };
       config.env = envValue;
     }
 
@@ -354,7 +357,7 @@ function addServer(
   ];
   if (config.auth) {
     lines.push(`  auth: ${config.auth.type} via credential ref "${config.auth.credentialRef}"`);
-    lines.push(`Store the secret (never in the config file): /mcp auth ${name} <secret>`);
+    lines.push(`Store a secret from an environment variable: /mcp auth ${name} --key-env=ENV_VAR`);
   }
   lines.push(`Enable and test: /mcp enable ${name} && /mcp test ${name}`);
   if (!saved) {
@@ -628,178 +631,5 @@ async function listPrompts(app: AppState, name: string | undefined): Promise<Com
       }
     }
   }
-  return { ok: true, output: lines.join('\n') };
-}
-
-async function permissions(
-  app: AppState,
-  name: string | undefined,
-  toolName: string | undefined,
-  toolVerb: 'on' | 'off' | undefined,
-): Promise<CommandResult> {
-  if (!name) return { ok: false, error: 'Usage: /mcp permissions <server> [tool on|off]' };
-  const config = app.mcp.getConfig(name);
-  if (!config) return { ok: false, error: `MCP server not configured: ${name}. See /mcp list.` };
-
-  // Toggle form: /mcp permissions <server> <tool> on|off
-  if (toolVerb !== undefined || toolName !== undefined) {
-    if ((toolVerb !== 'on' && toolVerb !== 'off') || !toolName) {
-      return { ok: false, error: `Usage: /mcp permissions ${name} <tool> on|off` };
-    }
-    await app.mcp.ensureConnected(name);
-    const state = app.mcp.state(name);
-    if (!state || state.status !== 'ready') {
-      return {
-        ok: false,
-        error:
-          `Tool list unavailable for ${name}${state?.lastError ? `: ${state.lastError}` : ''}. ` +
-          `Run /mcp test ${name} to see the connection error.`,
-      };
-    }
-    const exists = state.tools.some((tool) => tool.name === toolName);
-    if (!exists) {
-      return {
-        ok: false,
-        error: `Unknown tool "${toolName}" on ${name}. Run /mcp tools ${name} for the list.`,
-      };
-    }
-    const disabled = new Set(config.disabledTools ?? []);
-    if (toolVerb === 'off') disabled.add(toolName);
-    else disabled.delete(toolName);
-    config.disabledTools = [...disabled].sort();
-    saveConfig(app);
-    if (app.mcp.isConnected(name)) await app.mcp.refreshMetadata(name);
-    return {
-      ok: true,
-      output:
-        `MCP tool ${name}/${toolName} ${toolVerb === 'off' ? 'DISABLED (no longer exposed to the model)' : 'enabled (still subject to the permission engine)'}.\n` +
-        'This controls exposure only. Every call still passes the central permission engine (class "mcp").',
-    };
-  }
-
-  const state = app.mcp.state(name);
-  const sample = app.permissions.evaluate({
-    action: `mcp__${name}__example`,
-    toolName: `mcp__${name}__example`,
-    permissionClass: 'mcp',
-    summary: `representative MCP tool call on "${name}"`,
-    approvalKey: `mcp__${name}__example`,
-  });
-
-  const lines: string[] = [`MCP permissions for "${name}":`, ''];
-  lines.push(`  enabled        ${config.enabled ? 'yes' : 'no'}`);
-  lines.push(`  connection     ${statusLabel(config, app)}`);
-  lines.push(
-    `  permission     class "mcp" (never "read" — server annotations cannot pre-approve anything)`,
-  );
-
-  lines.push('');
-  lines.push('  Mode policy (from the mode registry):');
-  for (const mode of ['plan', 'build', 'review'] as const) {
-    const allowed = MODES[mode].allowedPermissionClasses.includes('mcp');
-    lines.push(
-      `    ${mode.padEnd(7)} ${allowed ? 'MCP tools offered' : 'MCP tools NOT offered (read-only mode)'}`,
-    );
-  }
-
-  lines.push('');
-  lines.push('  Default decision for a representative call (current session rules):');
-  lines.push(`    ${sample.decision.toUpperCase()} — ${sample.reason}`);
-  if (sample.decision === 'confirm') {
-    lines.push('    Interactive sessions prompt; non-interactive runs block unless --yes is set.');
-  }
-
-  const approvals = app.permissions
-    .activeApprovalKeys()
-    .filter((key) => key.startsWith(`mcp__${name}__`));
-  lines.push('');
-  lines.push(
-    `  Session approvals for this server: ${approvals.length > 0 ? approvals.join(', ') : '(none)'}`,
-  );
-
-  if (state && state.status === 'ready') {
-    const disabled = new Set(config.disabledTools ?? []);
-    lines.push('');
-    lines.push(`  Tool exposure (${state.tools.length} discovered):`);
-    for (const tool of state.tools) {
-      const exposure = disabled.has(tool.name) ? 'disabled' : 'exposed';
-      lines.push(
-        `    ${tool.name.padEnd(28)} ${exposure.padEnd(9)} timeout ${tool.timeoutMs ?? config.timeoutMs}ms · cap ${tool.outputBudget ?? config.outputLimitBytes} chars`,
-      );
-    }
-    lines.push('');
-    lines.push(`  Toggle exposure: /mcp permissions ${name} <tool> on|off`);
-  } else {
-    lines.push('');
-    lines.push(`  Tool exposure: unknown until the server is connected (/mcp test ${name}).`);
-  }
-
-  return { ok: true, output: lines.join('\n') };
-}
-
-async function storeAuth(
-  app: AppState,
-  name: string | undefined,
-  secret: string | undefined,
-): Promise<CommandResult> {
-  if (!name || !secret) {
-    return {
-      ok: false,
-      error:
-        'Usage: /mcp auth <name> <secret>\n' +
-        'The secret is written to the credential store; the config file keeps only the reference.\n' +
-        'Note: command arguments can end up in shell history — prefer pasting the secret at the prompt when available.',
-    };
-  }
-  const config = app.mcp.getConfig(name);
-  if (!config) return { ok: false, error: `MCP server not configured: ${name}. See /mcp list.` };
-
-  if (!config.auth) {
-    config.auth = { type: 'bearer', credentialRef: defaultCredentialRef(name) };
-  }
-  await app.credentials.set(config.auth.credentialRef, secret);
-  saveConfig(app);
-
-  return {
-    ok: true,
-    output:
-      `Credential stored for "${name}" under ref "${config.auth.credentialRef}" (${config.auth.type}).\n` +
-      'The config file stores the reference only — never the secret.\n' +
-      `Verify with /mcp test ${name}.`,
-  };
-}
-
-function showLogs(app: AppState, server: string | undefined): CommandResult {
-  const entries = app.mcp
-    .logEntries()
-    .filter((entry) => (server ? entry.server === server : true))
-    .slice(-60);
-
-  const lines: string[] = ['Recent MCP activity:', ''];
-  if (entries.length === 0) {
-    lines.push('  (nothing logged yet — connect with /mcp test <name>)');
-  } else {
-    for (const entry of entries) {
-      lines.push(`  [${entry.level}] ${entry.at} ${entry.server}: ${entry.message}`);
-    }
-  }
-
-  const audit = app.permissions
-    .audit()
-    .filter((entry) => entry.permissionClass === 'mcp' || entry.toolName?.startsWith('mcp__'))
-    .slice(-10);
-  lines.push('');
-  lines.push('Recent MCP permission decisions (this session):');
-  if (audit.length === 0) {
-    lines.push('  (none — no MCP tool call has been evaluated yet)');
-  } else {
-    for (const entry of audit) {
-      lines.push(
-        `  ${entry.timestamp} ${entry.decision.padEnd(16)} ${entry.toolName ?? entry.action} — ${entry.reason}`,
-      );
-    }
-  }
-  lines.push('');
-  lines.push('Full permission audit: /permissions. Session tool history: /status.');
   return { ok: true, output: lines.join('\n') };
 }

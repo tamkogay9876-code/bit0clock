@@ -68,7 +68,7 @@ export class AppState {
   /** Whether confirmations can be asked interactively */
   readonly interactive: boolean;
   /** --yes: auto-approve confirmations (never bypasses blocks or read-only modes) */
-  readonly autoApprove: boolean;
+  autoApprove: boolean;
   /** Skill discovery/activation manager (§32–§34) */
   readonly skills: SkillManager;
   /** MCP client manager (§35–§38) */
@@ -163,6 +163,11 @@ export class AppState {
 
   getProviderConfig(providerId: string): ProviderConfig | undefined {
     return this.config.providers.find((p) => p.id === providerId);
+  }
+
+  setAutoApprove(enabled: boolean): void {
+    this.autoApprove = enabled;
+    this.permissions.setAutoApprove(enabled);
   }
 
   enabledProviders(): ProviderConfig[] {

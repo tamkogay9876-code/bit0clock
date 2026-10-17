@@ -21,6 +21,29 @@ function formatRule(rule: PermissionRule, showScope: boolean): string {
 export function createPermissionCommands(app: AppState): CommandDefinition[] {
   return [
     {
+      name: 'auto',
+      category: 'modes',
+      description: 'Toggle session-wide approval for consequential tool actions',
+      usage: '/auto [true|false]',
+      handler: ({ args }): CommandResult => {
+        if (
+          args.length > 1 ||
+          (args[0] !== undefined && args[0] !== 'true' && args[0] !== 'false')
+        ) {
+          return { ok: false, error: 'Usage: /auto [true|false]' };
+        }
+        if (args[0] !== undefined) app.setAutoApprove(args[0] === 'true');
+        return {
+          ok: true,
+          output:
+            `Automatic approval is ${app.autoApprove ? 'ON' : 'OFF'} for this app session.\n` +
+            (app.autoApprove
+              ? 'Consequential tool actions will not prompt. Deny rules and Plan/Review read-only policy still apply.'
+              : 'Consequential tool actions require their normal confirmation.'),
+        };
+      },
+    },
+    {
       name: 'permissions',
       category: 'diagnostics',
       description: 'Show effective permission policy, scopes, and recent decisions',
@@ -32,6 +55,7 @@ export function createPermissionCommands(app: AppState): CommandDefinition[] {
         const lines: string[] = ['Permission policy:', ''];
 
         lines.push(`  mode policy: ${mode.label}${mode.readOnly ? ' (read-only)' : ''}`);
+        lines.push(`  auto approval: ${app.autoApprove ? 'ON (/auto true)' : 'off'}`);
         lines.push(`    allowed classes: ${mode.allowedPermissionClasses.join(', ')}`);
         lines.push('');
 

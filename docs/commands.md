@@ -6,6 +6,7 @@ mediaXG uses slash commands. Type `/help` for the full list.
 
 - `/help`, `/status`, `/doctor`, `/exit`, `/clear`, `/cancel`
 - `/mode plan|build|review`, `/think`, `/response`, `/temperature`, `/output-limit`
+- `/auto [true|false]` (session-only auto-approval; hard-deny rules still apply)
 
 ## Models and providers
 
@@ -30,7 +31,7 @@ mediaXG uses slash commands. Type `/help` for the full list.
 
 ## MCP
 
-- `/mcp`, `/mcp list|add|show|test|enable|disable|remove|tools|resources|prompts|permissions|auth|logs`
+- `/mcp`, `/mcp list|add|show|test|enable|disable|remove|tools|resources|prompts|permissions|auth <name> --key-env=ENV_VAR|logs`
 
 ## Workspace
 

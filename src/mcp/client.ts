@@ -34,6 +34,44 @@ import type {
 
 const SECRET_QUERY_PATTERN =
   /(token|secret|password|passwd|api[-_]?key|apikey|auth|access[-_]?key|credential)/i;
+const SENSITIVE_ENV_KEY_PATTERN =
+  /(?:api[-_]?key|token|secret|password|passwd|credential|authorization)/i;
+const ENV_REFERENCE_PATTERN = /^env:([A-Za-z_][A-Za-z0-9_]*)$/;
+
+/** Validate stdio environment overrides before writing them to config. */
+export function validateStdioEnvConfig(env: Record<string, string>): string | undefined {
+  for (const [key, value] of Object.entries(env)) {
+    const isReference = ENV_REFERENCE_PATTERN.test(value);
+    if (value.startsWith('env:') && !isReference) {
+      return `MCP stdio env value for ${key} must use env:VARIABLE_NAME syntax.`;
+    }
+    if (SENSITIVE_ENV_KEY_PATTERN.test(key) && !isReference) {
+      return `MCP stdio env key ${key} looks sensitive; use env:VARIABLE_NAME instead of a literal value.`;
+    }
+  }
+  return undefined;
+}
+
+/** Resolve explicit env references only at spawn time, never while saving config. */
+export function resolveStdioEnvironment(
+  overrides: Record<string, string> = {},
+): Record<string, string> {
+  const validationError = validateStdioEnvConfig(overrides);
+  if (validationError) throw new Error(validationError);
+
+  const env = { ...getDefaultEnvironment() };
+  for (const [key, value] of Object.entries(overrides)) {
+    const reference = ENV_REFERENCE_PATTERN.exec(value);
+    if (!reference) {
+      env[key] = value;
+      continue;
+    }
+    const resolved = process.env[reference[1]!];
+    if (!resolved) throw new Error(`MCP stdio environment reference ${reference[1]} is not set.`);
+    env[key] = resolved;
+  }
+  return env;
+}
 
 /** Refuse URLs that embed secrets (§36: no secrets in URLs). */
 export function assertNoSecretsInUrl(rawUrl: string): void {
@@ -106,7 +144,7 @@ export async function createMcpClient(
       args: config.args ?? [],
       // Environment allowlist: the SDK's safe default variables plus exactly
       // the variables configured for this server — never the full parent env.
-      env: { ...getDefaultEnvironment(), ...(config.env ?? {}) },
+      env: resolveStdioEnvironment(config.env),
       ...(config.cwd ? { cwd: config.cwd } : {}),
       stderr: 'pipe',
     });

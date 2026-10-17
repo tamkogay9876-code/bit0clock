@@ -41,7 +41,7 @@
 │  - Persistence, search, resume, export                   │
 ├─────────────────────────────────────────────────────────┤
 │ Credentials (src/credentials/)                           │
-│  - OS keychain, env refs, secure fallback                │
+│  - Environment refs + 0600 file store; no OS keychain    │
 ├─────────────────────────────────────────────────────────┤
 │ Budget (src/budget/)                                     │
 │  - Usage accounting, pricing, spend gates                │
@@ -60,7 +60,7 @@
 3. **Single permission engine** — every consequential action (native tool, MCP call, shell) passes through `src/permissions/`.
 4. **Plan mode is read-only** — enforced at the tool registry + permission engine level, not by prompt text.
 5. **Never fabricate data** — costs, quotas, token counts labeled when estimated; "unknown" when unverified.
-6. **Secrets never logged/exported** — credential refs only; redaction in logger; no secrets in session files.
+6. **Secrets never logged/exported** — credential refs only; redaction in logger; no secrets in session files. Credentials resolve from environment variables or a local `0600` file; OS keychain integration is not implemented.
 7. **Strict TypeScript** — `strict: true`, `noUncheckedIndexedAccess: true`.
 
 ## Data Flow (request lifecycle)

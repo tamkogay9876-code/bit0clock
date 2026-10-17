@@ -410,6 +410,32 @@ describe('/mcp configuration', () => {
     expect(noCommand.error).toContain('--command');
   });
 
+  it('requires MCP stdio secrets to be environment references', async () => {
+    const { app } = makeApp();
+    const unsafe = await run(
+      app,
+      '/mcp add unsafe --command=node --env=\'{"API_KEY":"literal-secret"}\'',
+    );
+    expect(unsafe.ok).toBe(false);
+    expect(unsafe.error).toContain('looks sensitive');
+    expect(app.mcp.getConfig('unsafe')).toBeUndefined();
+
+    const unsafeHeader = await run(
+      app,
+      '/mcp add unsafe-header --command=node --env=\'{"Authorization":"Bearer literal-secret"}\'',
+    );
+    expect(unsafeHeader.ok).toBe(false);
+    expect(unsafeHeader.error).toContain('looks sensitive');
+
+    const safe = await run(
+      app,
+      '/mcp add safe --command=node --env=\'{"API_KEY":"env:MEDIA_XG_MCP_KEY"}\'',
+    );
+    expect(safe.ok).toBe(true);
+    expect(app.mcp.getConfig('safe')?.env).toEqual({ API_KEY: 'env:MEDIA_XG_MCP_KEY' });
+    expect(JSON.stringify(app.config.mcpServers)).not.toContain('literal-secret');
+  });
+
   it('shows configuration without ever printing secrets', async () => {
     const { app } = makeApp();
     await run(app, '/mcp add context7 https://mcp.context7.com/mcp');
@@ -541,11 +567,13 @@ describe('/mcp discovery and permissions', () => {
     ).toEqual(['mcp__fake__echo', 'mcp__fake__other']);
   });
 
-  it('stores auth secrets in the credential store only', async () => {
+  it('stores MCP auth from an environment variable and rejects inline secrets', async () => {
     const { app, projectDir } = makeApp();
     await run(app, '/mcp add fake https://fake.example.com/mcp');
 
-    const auth = await run(app, '/mcp auth fake super-secret-token');
+    process.env['MEDIA_XG_TEST_MCP_KEY'] = 'super-secret-token';
+    const auth = await run(app, '/mcp auth fake --key-env=MEDIA_XG_TEST_MCP_KEY');
+    delete process.env['MEDIA_XG_TEST_MCP_KEY'];
     expect(auth.ok).toBe(true);
     expect(auth.output).toContain('FAKE_API_KEY');
     expect(app.mcp.getConfig('fake')!.auth).toEqual({
@@ -555,6 +583,10 @@ describe('/mcp discovery and permissions', () => {
     // escalation to the credential store happened (injected MemoryCredentialStore)
     const saved = readFileSync(join(projectDir, 'user-config/config.json'), 'utf8');
     expect(saved).not.toContain('super-secret-token');
+
+    const inline = await run(app, '/mcp auth fake super-secret-token');
+    expect(inline.ok).toBe(false);
+    expect(inline.error).toContain('Do not put API keys in command arguments');
 
     const usage = await run(app, '/mcp auth fake');
     expect(usage.ok).toBe(false);

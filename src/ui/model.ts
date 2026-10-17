@@ -6,6 +6,7 @@
 
 import type { AppState } from '../app/state.js';
 import type { CommandRegistry } from '../commands/registry.js';
+import { parseInput } from '../commands/parser.js';
 import type { SessionData } from '../session/types.js';
 import { MODES } from '../modes/index.js';
 import { formatMoney, formatRelative, formatTokens, shortenId } from '../commands/format.js';
@@ -183,6 +184,7 @@ export interface StatusParts {
   provider: string;
   model: string;
   mode: string;
+  auto: string;
   think: string;
   context: string;
   cost: string;
@@ -209,6 +211,7 @@ export function statusParts(app: AppState): StatusParts {
     provider: active?.providerId ?? 'no provider',
     model: active?.modelId ?? 'no model — /models',
     mode,
+    auto: app.autoApprove ? 'AUTO ON' : 'AUTO off',
     think: `THINK ${effort}${app.session.reasoning.budgetTokens !== undefined ? '•' : ''}`,
     context,
     cost: `${formatMoney(app.session.usage.estimatedCost, app.session.usage.currency)} (est.)`,
@@ -297,6 +300,11 @@ export function applySuggestion(input: string, suggestion: SuggestionItem): stri
   const parts = suggestion.insert.split(' ');
   const sub = parts.slice(1).join(' ');
   return `/${commandName} ${sub}`;
+}
+
+export function isCredentialCommand(input: string): boolean {
+  const parsed = parseInput(input);
+  return parsed.kind === 'command' && parsed.command === 'mcp' && parsed.args?.[0] === 'auth';
 }
 
 // ============================================================================

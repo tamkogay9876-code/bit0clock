@@ -18,8 +18,16 @@ Servers are added disabled by default:
 /mcp add xkiro-web https://api.xkiro.com/mcp/web --auth=bearer --credential=XKIRO_API_KEY
 ```
 
-Secrets never live in the config file — only credential references. Store
-secrets with `/mcp auth <name> <secret>`.
+Secrets never live in the config file — only credential references. Export the
+secret to an environment variable, then store it with
+`/mcp auth <name> --key-env=ENV_VAR`. Do not put a literal key in command
+arguments; terminal command history may retain it. The secret is copied into
+the credential store and is not echoed by the command.
+
+For stdio servers, use `env:VARIABLE_NAME` as the value for secret-like keys in
+`--env` JSON. The reference is stored in config and resolved from the process
+environment only when the server starts. Literal values for non-secret settings
+remain supported.
 
 ## Security
 

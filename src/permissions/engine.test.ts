@@ -97,6 +97,25 @@ describe('safe defaults', () => {
     expect(outcome.reason).toContain('--yes');
   });
 
+  it('can enable session auto-approval without bypassing deny rules or read-only modes', () => {
+    const engineInstance = engine({ interactive: true });
+    expect(engineInstance.evaluate(writeRequest()).decision).toBe('confirm');
+
+    engineInstance.setAutoApprove(true);
+    expect(engineInstance.evaluate(writeRequest()).decision).toBe('allow');
+
+    engineInstance.setMode('plan');
+    expect(engineInstance.evaluate(writeRequest()).decision).toBe('deny');
+
+    engineInstance.setMode('build');
+    const denied = engine({
+      interactive: true,
+      globalRules: [rule({ action: 'edit_file', effect: 'deny' })],
+    });
+    denied.setAutoApprove(true);
+    expect(denied.evaluate(writeRequest()).decision).toBe('deny');
+  });
+
   it('lets explicit user invocations satisfy confirmation without bypassing policy', () => {
     const runRequest = request({
       action: 'run_tests',

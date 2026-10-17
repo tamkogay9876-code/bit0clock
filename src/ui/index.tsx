@@ -36,6 +36,7 @@ import {
   computeSuggestions,
   finalizeEntry,
   hydrateTranscript,
+  isCredentialCommand,
   nextEntryId,
   permissionKeyDecision,
   pushEntry,
@@ -45,15 +46,13 @@ import {
 } from './model.js';
 import {
   BudgetGateView,
-  ConnectWizardView,
   InputBar,
   PermissionView,
   PickerView,
-  PROVIDER_TYPE_OPTIONS,
   StatusBar,
   Transcript,
-  type WizardState,
 } from './components.js';
+import { ConnectWizardView, PROVIDER_TYPE_OPTIONS, type WizardState } from './connect-wizard.js';
 
 export interface TUIOptions {
   initialPrompt?: string;
@@ -465,10 +464,13 @@ function AppRoot({
       setSuggestionIndex(0);
       if (value.trim() === '') return;
 
-      historyRef.current = [value, ...historyRef.current].slice(0, HISTORY_LIMIT);
+      const parsed = parseInput(value);
+      if (!isCredentialCommand(value)) {
+        historyRef.current = [value, ...historyRef.current].slice(0, HISTORY_LIMIT);
+      }
       historyIndexRef.current = -1;
 
-      if (parseInput(value).kind === 'command') {
+      if (parsed.kind === 'command') {
         const handled = await runCommand(value);
         if (handled) return;
       }
